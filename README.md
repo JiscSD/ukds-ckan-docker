@@ -92,27 +92,6 @@ ckan-docker-solr-1         ckan/ckan-solr:2.10-solr9          "docker-entrypoint
 After this step, CKAN should be running at `CKAN_SITE_URL` (by default https://localhost:8443)
 
 
-### Development mode
-
-Use this mode if you are making code changes to CKAN and either creating new extensions or making code changes to existing extensions. This mode also uses the `.env` file for config options.
-
-To develop local extensions use the `docker-compose.dev.yml` file:
-
-To build the images:
-
-	docker compose -f docker-compose.dev.yml build
-
-To install extensions from the `src` directory:
-
-	docker compose -f docker-compose.dev.yml run -u root ckan-dev ./install_src.sh
-
-To start the containers:
-
-	docker compose -f docker-compose.dev.yml up
-
-See [CKAN images](#5-ckan-images) for more details of what happens when using development mode.
-
-
 #### Create an extension
 
 You can use the ckan [extension](https://docs.ckan.org/en/latest/extensions/tutorial.html#creating-a-new-extension) instructions to create a CKAN extension, only executing the command inside the CKAN container and setting the mounted `src/` folder as output:

@@ -31,6 +31,8 @@ services:
       - dbnet
       - solrnet
       - redisnet
+    secrets:
+      - db_password
     env_file:
       - .env
     depends_on:
@@ -111,3 +113,7 @@ networks:
     internal: true
   redisnet:
     internal: true
+
+secrets:
+  ckan_db_password:
+    file: ./secrets/db_passwd.txt

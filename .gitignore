@@ -11,6 +11,8 @@ _src/*
 local/*
 .env
 
+/secrets/*.txt
+
 ### JetBrains
 
 ## .idea Directory

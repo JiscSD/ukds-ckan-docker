@@ -1,19 +1,26 @@
 volumes:
   ckan_storage:
-  pg_data:
   solr_data:
   pip_cache:
   site_packages:
+  nginx_conf:
+  nginx_pm_data:
+  ssl_data:
 
 services:
 
   nginx:
+    image: nginx:alpine
+    volumes:
+      - nginx_conf:/etc/nginx/templates
     build:
       context: nginx/
       dockerfile: Dockerfile
     networks:
       - webnet
       - ckannet
+    env_file:
+      - settings.env
     depends_on:
       ckan:
         condition: service_healthy
@@ -36,8 +43,6 @@ services:
     env_file:
       - .env
     depends_on:
-      db:
-        condition: service_healthy
       solr:
         condition: service_healthy
       redis:
@@ -65,31 +70,10 @@ services:
       timeout: 10s
       retries: 3
 
-  db:
-    build:
-      context: postgresql/
-    networks:
-      - dbnet
-    environment:
-      - POSTGRES_USER
-      - POSTGRES_PASSWORD
-      - POSTGRES_DB
-      - CKAN_DB_USER
-      - CKAN_DB_PASSWORD
-      - CKAN_DB
-      - DATASTORE_READONLY_USER
-      - DATASTORE_READONLY_PASSWORD
-      - DATASTORE_DB
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
-     
   solr:
     networks:
       - solrnet
-    image: ckan/ckan-solr:${SOLR_IMAGE_VERSION}
+    image: solr:${SOLR_IMAGE_VERSION}
     volumes:
       - solr_data:/var/solr
     restart: unless-stopped
@@ -103,13 +87,23 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "-e", "QUIT"]
-    
+
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:${NGINX_PM_VERSION}
+    networks:
+      - webnet
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/usr/bin/check-health" ]
+      interval: 10s
+      timeout: 3s
+    volumes:
+      - nginx_pm_data:/data
+      - ssl_data:/etc/letsencrypt
 networks:
   webnet:
   ckannet:
   solrnet:
-    internal: true
-  dbnet:
     internal: true
   redisnet:
     internal: true

@@ -64,17 +64,15 @@ Copy the included `.env.example` and rename it to `.env`. Modify it depending on
 > [!WARNING]
 > There is a sysadmin user created by default with the values defined in `CKAN_SYSADMIN_NAME` and `CKAN_SYSADMIN_PASSWORD` (`ckan_admin` and `test1234` by default). These must be changed before running this setup as a public CKAN instance.
 
-To build the images:
+Use the following bash scripts in order to control the docker CKAN instances:
 
-	docker compose build
+### build.sh
 
-To start the containers:
+Run this script to build the CKAN image, ready for deployment on the server.
 
-	docker compose up
+### start.sh
 
-This will start up the containers in the current window. By default the containers will log direct to this window with each container
-using a different colour. You could also use the -d "detach mode" option ie: `docker compose up -d` if you wished to use the current 
-window for something else.
+Run this script in order to startup Docker, and all the components necessary to run CKAN
 
 At the end of the container start sequence there should be 6 containers running:
 
@@ -82,13 +80,19 @@ At the end of the container start sequence there should be 6 containers running:
 $ docker compose ps
 NAME                       IMAGE                              COMMAND                  SERVICE      CREATED         STATUS                   PORTS
 ckan-docker-ckan-1         ckan-docker-ckan                   "/srv/app/start_ckan…"   ckan         4 minutes ago   Up 3 minutes (healthy)   5000/tcp
-ckan-docker-datapusher-1   ckan/ckan-base-datapusher:0.0.20   "sh -c 'uwsgi --plug…"   datapusher   4 minutes ago   Up 4 minutes (healthy)   8800/tcp
 ckan-docker-nginx-1        ckan-docker-nginx                  "/bin/sh -c 'openssl…"   nginx        4 minutes ago   Up 2 minutes             80/tcp, 0.0.0.0:8443->443/tcp
 ckan-docker-redis-1        redis:6                            "docker-entrypoint.s…"   redis        4 minutes ago   Up 4 minutes (healthy)
 ckan-docker-solr-1         ckan/ckan-solr:2.10-solr9          "docker-entrypoint.s…"   solr         4 minutes ago   Up 4 minutes (healthy)
+ckan-docker-nginx-proxy-manager-1 jc21/nginx-proxy-manager    "...."                    nginx-proxy  4 minutes ago   Up 4 minutes (healthy)
 ```
 
 After this step, CKAN should be running at `CKAN_SITE_URL` (by default https://localhost:8443)
+
+### stop.sh
+
+Run this script to turn off and remove the docker containers
+
+
 
 
 #### Create an extension
@@ -167,11 +171,9 @@ The Docker Compose environment `.env` file by default is set up for production m
 ## 5. CKAN images
 ![ckan images](https://user-images.githubusercontent.com/54408245/207079416-a01235af-2dea-4425-b6fd-f8c3687dd993.png)
 
-
-
 The Docker image config files used to build your CKAN project are located in the `ckan/` folder. There are two Docker files:
 
-* `Dockerfile`: this is based on `ckan/ckan-base:<version>`, a base image located in the DockerHub repository, that has CKAN installed along with all its dependencies, properly configured and running on [uWSGI](https://uwsgi-docs.readthedocs.io/en/latest/) (production setup)
+* `Dockerfile`: this is based on `chrisdalyjisc/ukds-ckan:<version>`, a base image located in the DockerHub repository, that has CKAN installed along with all its dependencies, properly configured and running on [uWSGI](https://uwsgi-docs.readthedocs.io/en/latest/) (production setup)
 * `Dockerfile.dev`:  this is based on `ckan/ckan-base:<version>-dev` also located located in the DockerHub repository, and extends `ckan/ckan-base:<version>` to include:
 
   * Any extension cloned on the `src` folder will be installed in the CKAN container when booting up Docker Compose (`docker compose up`). This includes installing any requirements listed in a `requirements.txt` (or `pip-requirements.txt`) file and running `python setup.py develop`.
@@ -260,16 +262,13 @@ command: `python -m pdb /usr/lib/ckan/venv/bin/ckan --config /srv/app/ckan.ini r
 
 ## 7. Datastore and datapusher
 
-The Datastore database and user is created as part of the entrypoint scripts for the db container. There is also a Datapusher container 
-running the latest version of Datapusher.
+There is a Datapusher container running the latest version of Datapusher.
 
 ## 8. NGINX
 
-The base Docker Compose configuration uses an NGINX image as the front-end (ie: reverse proxy). It includes HTTPS running on port number 8443. A "self-signed" SSL certificate is generated as part of the ENTRYPOINT. The NGINX `server_name` directive and the `CN` field in the SSL certificate have been both set to 'localhost'. This should obviously not be used for production.
+The base Docker Compose configuration uses an NGINX image as the front-end (ie: reverse proxy). It includes HTTPS running on port number 8443. 
 
-Creating the SSL cert and key files as follows:
-`openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=DE/ST=Berlin/L=Berlin/O=None/CN=localhost" -keyout ckan-local.key -out ckan-local.crt`
-The `ckan-local.*` files will then need to be moved into the nginx/setup/ directory
+Config can be configured within the .env file, using environmental variables in the docker compose script. The config location is within the docker nginx volume
 
 ## 9. ckanext-envvars
 
@@ -321,6 +320,7 @@ The base image used in the CKAN Dockerfile and Dockerfile.dev can be changed so 
 ## 13. Replacing DataPusher with XLoader
 
 Check out the wiki page for this: https://github.com/ckan/ckan-docker/wiki/Replacing-DataPusher-with-XLoader
+
 
 Copying and License
 -------------------

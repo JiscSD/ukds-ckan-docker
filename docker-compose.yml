@@ -1,26 +1,24 @@
-volumes:
-  ckan_storage:
-  solr_data:
-  pip_cache:
-  site_packages:
-  nginx_conf:
-  nginx_pm_data:
-  ssl_data:
 
 services:
 
   nginx:
-    image: nginx:alpine
+    image: nginx:${NGINX_VERSION}
     volumes:
       - nginx_conf:/etc/nginx/templates
-    build:
-      context: nginx/
-      dockerfile: Dockerfile
     networks:
       - webnet
       - ckannet
+      - solrnet
+      - redisnet
     env_file:
-      - settings.env
+      - config/settings.env
+    environment:
+      - NGINX_HOST=${NGINX_HOST}
+      - ssl_protocols=${SSL_PROTOCOLS}
+      - X_FRAME_OPTIONS=${X_FRAME_OPTIONS}
+      - X_XSS_PROTECTION=${X_XSS_PROTECTION}
+      - GZIP=${GZIP}
+      - KEEPALIVE_TIMEOUT=${KEEPALIVE_TIMEOUT}
     depends_on:
       ckan:
         condition: service_healthy
@@ -35,13 +33,17 @@ services:
         - TZ=${TZ}
     networks:
       - ckannet
-      - dbnet
       - solrnet
       - redisnet
     secrets:
-      - db_password
+      - ckan_db_password
+      - datastore_db_password
+      - ckan_api_encode_secret
+      - ckan_api_decode_secret
+      - ckan_admin_password
+      - xloader_api_token
     env_file:
-      - .env
+      - config/settings.env
     depends_on:
       solr:
         condition: service_healthy
@@ -50,7 +52,7 @@ services:
     volumes:
       - ckan_storage:/var/lib/ckan
       - pip_cache:/root/.cache/pip
-      - site_packages:/usr/lib/python3.10/site-packages
+      - site_packages:/usr/lib/python3.12/site-packages
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:5000/api/action/status_show"]
@@ -97,9 +99,18 @@ services:
       test: [ "CMD", "/usr/bin/check-health" ]
       interval: 10s
       timeout: 3s
+    depends_on:
+      - nginx
+    env_file:
+      - config/settings.env
+    ports:
+      - "${NGINX_PM_HTTPPORT}:${NGINX_PM_HTTPPORT}"
+      - "${NGINX_PM_HTTPSPORT}:${NGINX_PM_HTTPSPORT}"
+      - "${NGINX_PM_ADMINPORT}:${NGINX_PM_ADMINPORT}"
     volumes:
       - nginx_pm_data:/data
       - ssl_data:/etc/letsencrypt
+
 networks:
   webnet:
   ckannet:
@@ -111,3 +122,22 @@ networks:
 secrets:
   ckan_db_password:
     file: ./secrets/db_passwd.txt
+  datastore_db_password:
+    file: ./secrets/datastore_passwd.txt
+  ckan_api_encode_secret:
+    file: ./secrets/ckan_api_encode_secret.txt
+  ckan_api_decode_secret:
+    file: ./secrets/ckan_api_decode_secret.txt
+  ckan_admin_password:
+    file: ./secrets/ckan_admin_passwd.txt
+  xloader_api_token:
+    file: ./secrets/xloader_api_token.txt
+
+volumes:
+  ckan_storage:
+  solr_data:
+  pip_cache:
+  site_packages:
+  nginx_conf:
+  nginx_pm_data:
+  ssl_data:

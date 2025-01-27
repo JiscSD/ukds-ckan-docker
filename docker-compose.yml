@@ -1,30 +1,6 @@
 
 services:
 
-  nginx:
-    image: nginx:${NGINX_VERSION}
-    volumes:
-      - nginx_conf:/etc/nginx/templates
-    networks:
-      - webnet
-      - ckannet
-      - solrnet
-      - redisnet
-    env_file:
-      - config/settings.env
-    environment:
-      - NGINX_HOST=${NGINX_HOST}
-      - ssl_protocols=${SSL_PROTOCOLS}
-      - X_FRAME_OPTIONS=${X_FRAME_OPTIONS}
-      - X_XSS_PROTECTION=${X_XSS_PROTECTION}
-      - GZIP=${GZIP}
-      - KEEPALIVE_TIMEOUT=${KEEPALIVE_TIMEOUT}
-    depends_on:
-      ckan:
-        condition: service_healthy
-    ports:
-      - "0.0.0.0:${NGINX_SSLPORT_HOST}:${NGINX_SSLPORT}"
-    
   ckan:
     build:
       context: ckan/
@@ -35,15 +11,8 @@ services:
       - ckannet
       - solrnet
       - redisnet
-    secrets:
-      - ckan_db_password
-      - datastore_db_password
-      - ckan_api_encode_secret
-      - ckan_api_decode_secret
-      - ckan_admin_password
-      - xloader_api_token
     env_file:
-      - config/settings.env
+      - .env
     depends_on:
       solr:
         condition: service_healthy
@@ -55,19 +24,7 @@ services:
       - site_packages:/usr/lib/python3.12/site-packages
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:5000/api/action/status_show"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-    
-  datapusher:
-    networks:
-      - ckannet
-      - dbnet
-    image: ckan/ckan-base-datapusher:${DATAPUSHER_VERSION}
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:8800"]
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://${LOCALHOST}:${CKAN_PORT_HOST}/api/action/status_show"]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -75,18 +32,26 @@ services:
   solr:
     networks:
       - solrnet
-    image: solr:${SOLR_IMAGE_VERSION}
+    image: ckan/ckan-solr:${SOLR_IMAGE_VERSION}
     volumes:
       - solr_data:/var/solr
     restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${SOLR_PORT}:${SOLR_PORT}"
     healthcheck:
-      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:8983/solr/"]
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://${LOCALHOST}:${SOLR_PORT}/solr/"]
 
   redis:
     image: redis:${REDIS_VERSION}
     networks:
       - redisnet
     restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
     healthcheck:
       test: ["CMD", "redis-cli", "-e", "QUIT"]
 
@@ -94,15 +59,19 @@ services:
     image: jc21/nginx-proxy-manager:${NGINX_PM_VERSION}
     networks:
       - webnet
+      - solrnet
+      - redisnet
+      - ckannet
     restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      ckan:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD", "/usr/bin/check-health" ]
       interval: 10s
       timeout: 3s
-    depends_on:
-      - nginx
-    env_file:
-      - config/settings.env
     ports:
       - "${NGINX_PM_HTTPPORT}:${NGINX_PM_HTTPPORT}"
       - "${NGINX_PM_HTTPSPORT}:${NGINX_PM_HTTPSPORT}"
@@ -119,25 +88,10 @@ networks:
   redisnet:
     internal: true
 
-secrets:
-  ckan_db_password:
-    file: ./secrets/db_passwd.txt
-  datastore_db_password:
-    file: ./secrets/datastore_passwd.txt
-  ckan_api_encode_secret:
-    file: ./secrets/ckan_api_encode_secret.txt
-  ckan_api_decode_secret:
-    file: ./secrets/ckan_api_decode_secret.txt
-  ckan_admin_password:
-    file: ./secrets/ckan_admin_passwd.txt
-  xloader_api_token:
-    file: ./secrets/xloader_api_token.txt
-
 volumes:
   ckan_storage:
   solr_data:
   pip_cache:
   site_packages:
-  nginx_conf:
   nginx_pm_data:
   ssl_data:

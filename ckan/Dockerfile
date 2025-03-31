@@ -1,4 +1,4 @@
-FROM public.ecr.aws/v2q1n5b7/ckan/ckan-base:ukds-2.11
+FROM public.ecr.aws/v2q1n5b7/ckan/ckan-base:ukds-2.11-py3.12-latest
 
 # Install any extensions needed by your CKAN instance
 # See Dockerfile.dev for more details and examples
